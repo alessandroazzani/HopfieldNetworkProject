@@ -186,8 +186,7 @@ class Graph {
 		}
 		std::cout << get_sync() << '\n';
 	}
-
-
+//coglione
 	double get_sync(){
 		double sync;
 		int s;
