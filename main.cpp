@@ -76,7 +76,7 @@ class Graph {
 		std::uniform_int_distribution<> dis_int(0, n_nodes - 1);
 		std::uniform_real_distribution<> dis_real(-0.5, 1);
 
-		auto itr = adj.begin();		//itr=row iterator
+		auto itr = adj.begin();
 		auto const endr = adj.end();
 		std::vector<double> row(n_nodes);
 		int N = 0;
@@ -113,6 +113,60 @@ public:
 		for (int i = 0; i != memory.size(); ++i) {
 			memory[i].resize(n_nodes);
 		}
+	}
+
+	void cluster_adj(int num_clusters, int nodes_in_cluster){
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::uniform_int_distribution<> dis_int(0, nodes_in_cluster - 1);
+		std::uniform_real_distribution<> dis_real(0, 1);	//remember man!!!!!
+
+		n_nodes = num_clusters * nodes_in_cluster;  //these first rows are just to set the new number of nodes
+		state.resize(n_nodes);
+		for (int i = 0; i != memory.size(); ++i) {
+			memory[i].resize(n_nodes);
+		}
+		auto itr = adj.begin();
+		auto endr = adj.end();
+		auto itc = itr->begin();
+		auto endc = itr->end();
+		for(; itr != endr; ++itr){
+			itc = itr->begin();
+			endc = itr->end();
+			for(; itc != endc; ++itc){
+				(*itc) = 0;
+			}
+		}
+		adj.resize(n_nodes);
+		itr = adj.begin();
+		endr = adj.end();
+		for(;itr != endr; ++itr){
+			(*itr).resize(n_nodes);
+		}
+
+
+		itr = adj.begin();
+		std::vector<double> row(n_nodes);
+		int N = 0;
+		int r = 0;
+		int j = 0;
+		for(int index_cluster = 0; index_cluster != num_clusters; ++index_cluster){
+			j=0;
+			for (;j != nodes_in_cluster; ++j, ++itr, ++r) {
+				for (int i = 0; i != in_degree; ++i) {
+					N = dis_int(gen);
+					if (row[N + index_cluster * nodes_in_cluster] == 0 && (adj[N + index_cluster * nodes_in_cluster])[r] == 0 && (N + index_cluster * nodes_in_cluster) != r) {
+						row[N + index_cluster * nodes_in_cluster] = dis_real(gen);
+					}
+					else { --i; }
+				}
+				*itr = row;
+				for (auto it = row.begin(); it != row.end(); it++) {
+					*it = 0;
+				}
+			}
+		}
+
 	}
 
 	int Heaviside(double x) {
@@ -165,7 +219,7 @@ public:
 
 	void random_init() {
 		//srand((unsigned) std::time(0));
-		std::random_device rd;  //Will be used to obtain a seed for the random number engine
+		//std::random_device rd;  //Will be used to obtain a seed for the random number engine
 		std::mt19937 gen((unsigned) std::time(0));
 		std::uniform_int_distribution<> dis_binary(0, 1);
 
@@ -178,7 +232,6 @@ public:
 			else { state[i].set_state(0); }
 		}
 	}
-
 
 	void all_firing() {
 		for (int i = 0; i != n_nodes; ++i) {
@@ -214,7 +267,6 @@ public:
 		return sync;
 	}
 
-
 	void print_adj() {
 		auto itr = adj.begin();
 		auto const endr = adj.end();
@@ -231,7 +283,6 @@ public:
 		}
 		std::cout << '\n';
 	}
-
 
 	void print_adj_txt() {
 		auto itr = adj.begin();
@@ -281,16 +332,19 @@ int main() {
 	int time_passive = 1;
 	int retard = 4;
 	int number_neurons = 6;
-	int in_degree = 2;
+	int in_degree = 1;
 	Graph G(number_neurons, in_degree, time_active, time_passive, retard);
 	//G.all_firing();
-	G.random_init();
-	G.print_state();
-	G.write_adj();
+	//G.random_init();
+	//G.print_state();
+	//G.write_adj();
 	int steps = 400;
-	for (int i = 0; i != steps; ++i) {
+	/*for (int i = 0; i != steps; ++i) {
 		G.next_step();
 		G.print_state();
-	}
-	G.print_adj_txt();
+	}*/
+	//G.print_adj_txt();
+
+	G.cluster_adj(2, 4);
+	G.print_adj();
 }
