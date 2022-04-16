@@ -191,7 +191,7 @@ public:
 		std::random_device rd;
 		std::mt19937 gen(rd());
 		std::uniform_int_distribution<> dis_int(0, n_nodes/2 - 1);
-		std::uniform_real_distribution<> dis_real(0, 1);
+		std::uniform_real_distribution<> dis_real(5, 10);
 
 		//Clear adjacency matrix
 		auto itr = adj.begin();
@@ -390,22 +390,21 @@ public:
 int main() {
 	int time_active = 2;
 	int time_passive = 1;
-	int retard = 4;
-	int number_neurons = 12;
-	int in_degree = 2;
+	int retard = 1;
+	int number_neurons = 200;
+	int in_degree = 10;
 	Graph G(number_neurons, in_degree, time_active, time_passive, retard);
 	//G.all_firing();
-	//G.random_init();
-	//G.print_state();
-	//G.write_adj();
-	int steps = 400;
-	/*for (int i = 0; i != steps; ++i) {
+	G.random_init();
+	G.print_state();
+	G.write_adj();
+	int steps = 200;
+	for (int i = 0; i != steps; ++i) {
 		G.next_step();
 		G.print_state();
-	}*/
+	}
 	//G.print_adj_txt();
 
 	//G.cluster_adj(3, 4, 1);
-	G.bipartite_adj();
-	G.print_adj();
+	//G.bipartite_adj();
 }
