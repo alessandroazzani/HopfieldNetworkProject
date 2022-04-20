@@ -327,6 +327,32 @@ public:
 		return sync;
 	}
 
+	//Synchronization coefficient for bipartite graphs
+	double bipartite_sync() {
+		double sync_2 = 0;
+		double sync_1 = 0;
+		int s;
+		for (int i = 0; i != n_nodes; ++i) {
+			s = state[i].get_state();
+			if(i == n_nodes / 2) {
+				sync_1 = sync_2;
+				sync_2 = 0;
+			}
+			switch (s)
+			{
+			case 0:
+				sync_2 += -1;
+				break;
+			case 1:
+				sync_2 += 1;
+				break;
+			default:
+				break;
+			}
+		}
+		return (std::abs(sync_1) + std::abs(sync_2)) / n_nodes;
+	}
+
 	void print_adj() {
 		auto itr = adj.begin();
 		auto const endr = adj.end();
@@ -392,7 +418,7 @@ int main() {
 	int time_passive = 1;
 	int retard = 1;
 	int number_neurons = 200;
-	int in_degree = 10;
+	int in_degree = 40;
 	Graph G(number_neurons, in_degree, time_active, time_passive, retard);
 	//G.all_firing();
 	G.random_init();
@@ -401,7 +427,8 @@ int main() {
 	int steps = 200;
 	for (int i = 0; i != steps; ++i) {
 		G.next_step();
-		G.print_state();
+		//G.print_state();
+		std::cout << G.bipartite_sync() << '\n';
 	}
 	//G.print_adj_txt();
 
