@@ -119,6 +119,7 @@ public:
 		}
 	}
 
+	//delete this once you checked bipartite works
 	void bipartite_adj(){
 		std::random_device rd;
 		std::mt19937 gen(rd());
@@ -235,6 +236,10 @@ public:
 		for (int i = 0; i != n_nodes; ++i) {
 			std::cout << state[i].get_state() << " ";
 		}
+		std::cout << '\n';
+	}
+
+	void print_sync(){
 		std::cout << get_sync() << '\n';
 	}
 
@@ -258,32 +263,6 @@ public:
 		}
 		sync = sync / n_nodes;
 		return sync;
-	}
-
-	//Synchronization coefficient for bipartite graphs
-	double bipartite_sync() {
-		double sync_2 = 0;
-		double sync_1 = 0;
-		int s;
-		for (int i = 0; i != n_nodes; ++i) {
-			s = state[i].get_state();
-			if(i == n_nodes / 2) {
-				sync_1 = sync_2;
-				sync_2 = 0;
-			}
-			switch (s)
-			{
-			case 0:
-				sync_2 += -1;
-				break;
-			case 1:
-				sync_2 += 1;
-				break;
-			default:
-				break;
-			}
-		}
-		return (std::abs(sync_1) + std::abs(sync_2)) / n_nodes;
 	}
 
 	void print_adj() {
@@ -341,6 +320,120 @@ public:
 			}
 		}
 		inFile.close();
+	}
+
+};
+
+class Bipartite : public Graph{
+
+	void bipartite_adj(){
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::uniform_int_distribution<> dis_int(0, n_nodes/2 - 1);
+		std::uniform_real_distribution<> dis_real(10, 20);
+
+		//Create a bipartite adjacency matrix
+		auto itr = adj.begin();
+		auto const endr = adj.end();
+		auto itc = itr->begin();
+		auto endc = itr->end();
+		std::vector<double> row(n_nodes);
+		int N = 0;
+		int r = 0;
+		int half = 1;
+		for (;itr != endr; ++itr, ++r) {
+			if (r >= n_nodes / 2) {half = 0;}
+			for (int i = 0; i != in_degree; ++i) {
+				N = dis_int(gen);
+				if (row[N + half * n_nodes / 2] == 0 && (adj[N + half * n_nodes / 2])[r] == 0) {
+					row[N + half * n_nodes / 2] = dis_real(gen);
+				}
+				else { --i; }
+			}
+			*itr = row;
+			for (auto it = row.begin(); it != row.end(); it++) {
+				*it = 0;
+			}
+
+		}
+	}
+
+	public:
+	Bipartite(int n_nodes_, int in_degree_, int time_active_, int time_passive_, int retard_) 
+	: Graph(n_nodes_, in_degree_, time_active_, time_passive_, retard_, true) {
+			bipartite_adj();
+	}
+
+	double get_sync() {
+		double sync_2 = 0;
+		double sync_1 = 0;
+		int s;
+		for (int i = 0; i != n_nodes; ++i) {
+			s = state[i].get_state();
+			if(i == n_nodes / 2) {
+				sync_1 = sync_2;
+				sync_2 = 0;
+			}
+			switch (s)
+			{
+			case 0:
+				sync_2 += -1;
+				break;
+			case 1:
+				sync_2 += 1;
+				break;
+			default:
+				break;
+			}
+		}
+		return (std::abs(sync_1) + std::abs(sync_2)) / n_nodes;
+	}
+	
+	
+	void print_syncs() {
+		double sync_2 = 0;
+		double sync_1 = 0;
+		int s;
+		for (int i = 0; i != n_nodes; ++i) {
+			s = state[i].get_state();
+			if(i == n_nodes / 2) {
+				sync_1 = sync_2;
+				sync_2 = 0;
+			}
+			switch (s)
+			{
+			case 0:
+				sync_2 += -1;
+				break;
+			case 1:
+				sync_2 += 1;
+				break;
+			default:
+				break;
+			}
+		}
+		std::cout << sync_1 / n_nodes * 2 << "	" << sync_2 / n_nodes * 2 << '\n';
+	}
+
+	void print_sync(){
+		std::cout << get_sync() << '\n';
+	}
+
+	void bias_init(double p_1, double p_2){
+		std::mt19937 gen((unsigned) std::time(0));
+		std::uniform_real_distribution<> dis(0.0, 1.0);
+
+		double p = p_1;
+		for(int i = 0; i != n_nodes; ++i){
+			double random = dis(gen);
+			if(random < p){
+				state[i].set_state(1);
+				state[i].set_clock(time_active);
+			}
+			if(i == n_nodes / 2){
+				p = p_2;
+			}
+		}
 	}
 
 };
@@ -408,39 +501,70 @@ class Cluster : public Graph{
 		nodes_in_cluster = nodes_in_cluster_;
 		cluster_adj();
 	}
+
+	void print_sync(){
+		double sync = 0;
+		int s;
+		int i = 1;
+		for (auto it = state.begin(); it != state.end(); ++it, ++i) {
+			s = (*it).get_state();
+			switch (s)
+			{
+			case 0:
+				sync += -1;
+				break;
+			case 1:
+				sync += 1;
+				break;
+			default:
+				break;
+			}
+			if(i == nodes_in_cluster){
+				i = 0;
+				std::cout << sync / nodes_in_cluster << "	";
+				sync = 0;
+			}
+		}
+		std::cout << '\n';
+	}
 };
 
 
 int main() {
 	//Parameters used for bipartite graph simulation
 	/*
-	int time_active = 2;
+	int time_active = 1;
 	int time_passive = 1;
 	int retard = 1;
-	int number_neurons = 200;
-	int in_degree = 40;
+	int number_neurons = 1000;
+	int in_degree = 2;
 	/**/
 	
+	/**/
 	int time_active = 2;
 	int time_passive = 3;
 	int retard = 4;
 	int number_neurons = 6;
 	int in_degree = 1;
-	//Graph G(number_neurons, in_degree, time_active, time_passive, retard);
+	int num_cluster = 3;
+	int nodes_in_cluster = 4;
+	int intercluster = 5;
+	/**/
 
-	int num_cluster = 2;
-	int nodes_in_cluster = 5;
-	int intercluster = 1;
+	//Graph G(number_neurons, in_degree, time_active, time_passive, retard);
 	Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive, retard);
-	//G.random_init();
-	G.print_adj();
+	//Bipartite G(number_neurons, in_degree, time_active, time_passive, retard);
+
+	G.random_init();
+	//G.bias_init(0.8, 0.2);
+	//G.print_adj();
 	//G.print_adj_txt();
 	//G.write_adj();
-	int steps = 200;
+	int steps = 100;
 	for (int i = 0; i != steps; ++i) {
 		//G.print_state();
-		//G.next_step();
-		//std::cout << G.bipartite_sync() << '\n';
+		G.print_sync();
+		G.next_step();
 	}
 
 }
