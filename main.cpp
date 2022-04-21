@@ -46,31 +46,8 @@ double operator*(std::vector<double> l, std::vector<Neuron> r) {
 }
 
 class Graph {
-	int n_nodes = 0;
-	int in_degree = 0;
-	int time_active = 0;
-	int time_passive = 0;
-	int retard = 0;
-	std::vector<std::vector<double>> memory;
-	std::vector<std::vector<double>> adj{ 0 }; //elemento 1 2 è diretto da 2 ad 1(è la trasposta...)
-	std::vector<Neuron> state;
-	int time = 0;
-
-	auto get_row(int row) {
-		assert(row < n_nodes);
-		auto it_row = adj.begin();
-		for (int i = 0; i != row; ++i) {
-			++it_row;
-		}
-		return it_row;
-	}
 
 	void generate_adj() {
-		adj.resize(n_nodes);
-		for (int i = 0; i != n_nodes; ++i) {
-			adj[i].resize(n_nodes);
-		}
-
 		std::random_device rd;  //Will be used to obtain a seed for the random number engine
 		std::mt19937 gen(rd());
 		std::uniform_int_distribution<> dis_int(0, n_nodes - 1);
@@ -98,9 +75,30 @@ class Graph {
 		}
 	}
 
+protected:
+
+	int n_nodes = 0;
+	int in_degree = 0;
+	int time_active = 0;
+	int time_passive = 0;
+	int retard = 0;
+	std::vector<std::vector<double>> memory;
+	std::vector<std::vector<double>> adj{ 0 }; //elemento 1 2 è diretto da 2 ad 1(è la trasposta...)
+	std::vector<Neuron> state;
+	int time = 0;
+
+	auto get_row(int row) {
+		assert(row < n_nodes);
+		auto it_row = adj.begin();
+		for (int i = 0; i != row; ++i) {
+			++it_row;
+		}
+		return it_row;
+	}
+
 public:
 
-	Graph(int n_nodes_, int in_degree_, int time_active_, int time_passive_, int retard_) {
+	Graph(int n_nodes_, int in_degree_, int time_active_, int time_passive_, int retard_, bool is_cluster = false) {
 		n_nodes = n_nodes_;
 		in_degree = in_degree_;
 		time_active = time_active_ - 1;
@@ -108,83 +106,17 @@ public:
 		retard = retard_ - 1;
 		assert(in_degree < (n_nodes - 1));
 		state.resize(n_nodes);
-		generate_adj();
+		if(!is_cluster){
+			generate_adj();
+		}
 		memory.resize(retard);
 		for (int i = 0; i != memory.size(); ++i) {
 			memory[i].resize(n_nodes);
 		}
-	}
-
-	void cluster_adj(int num_clusters, int nodes_in_cluster, int connections){
-		std::random_device rd;
-		std::mt19937 gen(rd());
-		std::uniform_int_distribution<> dis_int(0, nodes_in_cluster - 1);
-		std::uniform_real_distribution<> dis_real(5, 10);	//remember man!!!!!
-		std::uniform_real_distribution<> dis_inhibitor(-150, -140);
-
- 		//Set the new number of nodes
-		n_nodes = num_clusters * nodes_in_cluster;
-		state.resize(n_nodes);
-		for (int i = 0; i != memory.size(); ++i) {
-			memory[i].resize(n_nodes);
-		}
-
-		//Clear adjacency matrix and resize it
-		auto itr = adj.begin();
-		auto endr = adj.end();
-		auto itc = itr->begin();
-		auto endc = itr->end();
-		for(; itr != endr; ++itr){
-			itc = itr->begin();
-			endc = itr->end();
-			for(; itc != endc; ++itc){
-				(*itc) = 0;
-			}
-		}
 		adj.resize(n_nodes);
-		itr = adj.begin();
-		endr = adj.end();
-		for(;itr != endr; ++itr){
-			(*itr).resize(n_nodes);
+		for (int i = 0; i != n_nodes; ++i) {
+			adj[i].resize(n_nodes);
 		}
-
-		//Create connections inside the clusters
-		itr = adj.begin();
-		std::vector<double> row(n_nodes);
-		int N = 0;
-		int r = 0;
-		int j = 0;
-		for(int index_cluster = 0; index_cluster != num_clusters; ++index_cluster){
-			for (int j = 0 ;j != nodes_in_cluster; ++j, ++itr, ++r) {
-				for (int i = 0; i != in_degree; ++i) {
-					N = dis_int(gen);
-					if (row[N + index_cluster * nodes_in_cluster] == 0 && (adj[N + index_cluster * nodes_in_cluster])[r] == 0 && (N + index_cluster * nodes_in_cluster) != r) {
-						row[N + index_cluster * nodes_in_cluster] = dis_real(gen);
-					}
-					else { --i; }
-				}
-				*itr = row;
-				for (auto it = row.begin(); it != row.end(); it++) {
-					*it = 0;
-				}
-			}
-			//Create inhibitory connections between the clusters
-			for(int end_cluster = 0; end_cluster != num_clusters; ++end_cluster){
-				if(end_cluster == index_cluster){
-					//Do nothing, skip.
-				} else {
-					for (int i = 0; i != connections; ++i) {
-						N = dis_int(gen);
-						int C = dis_int(gen);
-						if ((adj[C + index_cluster * nodes_in_cluster])[N + end_cluster * nodes_in_cluster] == 0 && (adj[N + end_cluster * nodes_in_cluster])[C + index_cluster * nodes_in_cluster] == 0 ) {
-							(adj[C + index_cluster * nodes_in_cluster])[N + end_cluster * nodes_in_cluster] = dis_inhibitor(gen);
-						}
-						else { --i; }
-					}
-				}
-			}
-		}
-
 	}
 
 	void bipartite_adj(){
@@ -306,6 +238,7 @@ public:
 		std::cout << get_sync() << '\n';
 	}
 
+	//basic synchronization
 	double get_sync() {
 		double sync = 0;
 		int s;
@@ -412,6 +345,71 @@ public:
 
 };
 
+class Cluster : public Graph{
+	int num_clusters = 0;
+	int nodes_in_cluster = 0;
+	int inter_connections = 0;
+	
+	void cluster_adj(){
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::uniform_int_distribution<> dis_int(0, nodes_in_cluster - 1);
+		std::uniform_real_distribution<> dis_real(5, 10);	//intracluster
+		std::uniform_real_distribution<> dis_inhibitor(-150, -140); //intercluster
+
+
+		//Create connections inside the clusters
+		auto itr = adj.begin();
+		auto endr = adj.end();
+		auto itc = itr->begin();
+		auto endc = itr->end();
+		std::vector<double> row(n_nodes);
+		int N = 0;
+		int r = 0;
+		int j = 0;
+		for(int index_cluster = 0; index_cluster != num_clusters; ++index_cluster){
+			for (int j = 0 ;j != nodes_in_cluster; ++j, ++itr, ++r) {
+				for (int i = 0; i != in_degree; ++i) {
+					N = dis_int(gen);
+					if (row[N + index_cluster * nodes_in_cluster] == 0 && (adj[N + index_cluster * nodes_in_cluster])[r] == 0 && (N + index_cluster * nodes_in_cluster) != r) {
+						row[N + index_cluster * nodes_in_cluster] = dis_real(gen);
+					}
+					else { --i; }
+				}
+				*itr = row;
+				for (auto it = row.begin(); it != row.end(); it++) {
+					*it = 0;
+				}
+			}
+			//Create inhibitory connections between the clusters
+			for(int end_cluster = 0; end_cluster != num_clusters; ++end_cluster){
+				if(end_cluster == index_cluster){
+					//Do nothing, skip.
+				} else {
+					for (int i = 0; i != inter_connections; ++i) {
+						N = dis_int(gen);
+						int C = dis_int(gen);
+						if ((adj[C + index_cluster * nodes_in_cluster])[N + end_cluster * nodes_in_cluster] == 0 && (adj[N + end_cluster * nodes_in_cluster])[C + index_cluster * nodes_in_cluster] == 0 ) {
+							(adj[C + index_cluster * nodes_in_cluster])[N + end_cluster * nodes_in_cluster] = dis_inhibitor(gen);
+						}
+						else { --i; }
+					}
+				}
+			}
+		}
+
+	}
+
+	public:
+	Cluster(int num_clusters_, int nodes_in_cluster_, int inter_connections_, int in_degree_, int time_active_, int time_passive_, int retard_) 
+	: Graph(num_clusters_ * nodes_in_cluster_, in_degree_, time_active_, time_passive_, retard_, true) {
+		inter_connections = inter_connections_;
+		num_clusters = num_clusters_;
+		nodes_in_cluster = nodes_in_cluster_;
+		cluster_adj();
+	}
+};
+
 
 int main() {
 	//Parameters used for bipartite graph simulation
@@ -426,18 +424,22 @@ int main() {
 	int time_active = 2;
 	int time_passive = 3;
 	int retard = 4;
-	int number_neurons = 200;
-	int in_degree = 10;
-	Graph G(number_neurons, in_degree, time_active, time_passive, retard);
-	G.cluster_adj(2, 40, 200);
-	G.random_init();
-	//G.print_adj();
+	int number_neurons = 6;
+	int in_degree = 1;
+	//Graph G(number_neurons, in_degree, time_active, time_passive, retard);
+
+	int num_cluster = 2;
+	int nodes_in_cluster = 5;
+	int intercluster = 1;
+	Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive, retard);
+	//G.random_init();
+	G.print_adj();
 	//G.print_adj_txt();
 	//G.write_adj();
-	int steps = 100;
+	int steps = 200;
 	for (int i = 0; i != steps; ++i) {
-		G.print_state();
-		G.next_step();
+		//G.print_state();
+		//G.next_step();
 		//std::cout << G.bipartite_sync() << '\n';
 	}
 
