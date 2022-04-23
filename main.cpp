@@ -84,6 +84,7 @@ protected:
 	int retard = 0;
 	std::vector<std::vector<double>> memory;
 	std::vector<std::vector<double>> adj{ 0 }; //elemento 1 2 è diretto da 2 ad 1(è la trasposta...)
+	std::vector<std::vector<double>> transpose{ 0 };
 	std::vector<Neuron> state;
 	int time = 0;
 
@@ -106,6 +107,7 @@ public:
 		retard = retard_ - 1;
 		assert(in_degree < (n_nodes - 1));
 		state.resize(n_nodes);
+		adj.resize(n_nodes, std::vector<double>(n_nodes));
 		if(!is_cluster){
 			generate_adj();
 		}
@@ -113,52 +115,14 @@ public:
 		for (int i = 0; i != memory.size(); ++i) {
 			memory[i].resize(n_nodes);
 		}
-		adj.resize(n_nodes);
-		for (int i = 0; i != n_nodes; ++i) {
-			adj[i].resize(n_nodes);
-		}
 	}
 
-	//delete this once you checked bipartite works
-	void bipartite_adj(){
-		std::random_device rd;
-		std::mt19937 gen(rd());
-		std::uniform_int_distribution<> dis_int(0, n_nodes/2 - 1);
-		std::uniform_real_distribution<> dis_real(5, 10);
-
-		//Clear adjacency matrix
-		auto itr = adj.begin();
-		auto const endr = adj.end();
-		auto itc = itr->begin();
-		auto endc = itr->end();
-		for(; itr != endr; ++itr){
-			itc = itr->begin();
-			endc = itr->end();
-			for(; itc != endc; ++itc){
-				(*itc) = 0;
+	void create_transpose(){
+		transpose.resize(n_nodes, std::vector<double>(n_nodes));
+		for (int i = 0; i < n_nodes; ++i){
+			for (int j = 0; j < n_nodes; ++j) {
+				transpose[j][i] = adj[i][j];
 			}
-		}
-
-		//Create a bipartite adjacency matrix
-		itr = adj.begin();
-		std::vector<double> row(n_nodes);
-		int N = 0;
-		int r = 0;
-		int half = 1;
-		for (;itr != endr; ++itr, ++r) {
-			if (r >= n_nodes / 2) {half = 0;}
-			for (int i = 0; i != in_degree; ++i) {
-				N = dis_int(gen);
-				if (row[N + half * n_nodes / 2] == 0 && (adj[N + half * n_nodes / 2])[r] == 0) {
-					row[N + half * n_nodes / 2] = dis_real(gen);
-				}
-				else { --i; }
-			}
-			*itr = row;
-			for (auto it = row.begin(); it != row.end(); it++) {
-				*it = 0;
-			}
-
 		}
 	}
 
@@ -300,6 +264,57 @@ public:
 		SaveFile.close();
 	}
 
+	//normaliza the firing of a neuron between its "axons"
+	void normalize(){
+		int row = 0;
+		int col = 0;
+		int num_fire = 0;
+		for (;col != n_nodes; ++col) {
+			num_fire = 0;
+			for (row=0 ;row != n_nodes; ++row) {
+					if(adj[row][col] != 0){
+						++num_fire;
+					}
+				}
+			for (row=0 ;row != n_nodes; ++row) {
+				if(adj[row][col] != 0){
+					adj[row][col] /= num_fire;
+				}
+			}
+		}
+		
+	}
+
+	//write adj in Networkx.txt file as adjlist
+	void write_adjlist(){
+		create_transpose();
+
+		auto itr = transpose.begin();
+		auto const endr = transpose.end();
+		auto endc = itr->end();
+		auto itc = itr->begin();
+		int row = 1;
+		int col = 1;
+		bool first_time = true;
+		std::ofstream SaveFile("Networkx.txt");
+		for (;itr != endr;++itr, ++row) {
+			itc = itr->begin();
+			endc = itr->end();
+			col = 1;
+			if(first_time != true){
+				SaveFile << "\n";
+			}
+			SaveFile << row << "\t" ;
+			for (;itc != endc;++itc, ++col) {
+				if((*itc) != 0){
+					SaveFile << col << "\t";  //this function prints the adj matrix in a txt file
+				}
+			}
+			first_time = false;
+		}
+		SaveFile.close();
+	}
+
 	void write_adj() {
 		auto itr = adj.begin();
 		auto const endr = adj.end();
@@ -321,7 +336,6 @@ public:
 		}
 		inFile.close();
 	}
-
 };
 
 class Bipartite : public Graph{
@@ -545,17 +559,20 @@ int main() {
 	int time_passive = 3;
 	int retard = 4;
 	int number_neurons = 6;
-	int in_degree = 1;
+	int in_degree = 2;
 	int num_cluster = 3;
 	int nodes_in_cluster = 4;
 	int intercluster = 5;
 	/**/
 
-	//Graph G(number_neurons, in_degree, time_active, time_passive, retard);
-	Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive, retard);
+	Graph G(number_neurons, in_degree, time_active, time_passive, retard);
+	//Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive, retard);
 	//Bipartite G(number_neurons, in_degree, time_active, time_passive, retard);
 
-	G.random_init();
+	//G.write_adjlist();
+	G.print_adj();
+	//G.normalize();
+	//G.random_init();
 	//G.bias_init(0.8, 0.2);
 	//G.print_adj();
 	//G.print_adj_txt();
@@ -563,8 +580,8 @@ int main() {
 	int steps = 100;
 	for (int i = 0; i != steps; ++i) {
 		//G.print_state();
-		G.print_sync();
-		G.next_step();
+		//G.print_sync();
+		//G.next_step();
 	}
 
 }
