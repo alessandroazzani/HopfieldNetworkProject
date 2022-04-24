@@ -1,5 +1,6 @@
 #include<iostream>
 #include<vector>
+#include<algorithm>
 #include<cassert>
 #include<cmath>
 #include<random>
@@ -25,7 +26,7 @@ public:
 
 	int get_clock() { return clock; }
 
-	double get_state() {
+	int get_state() {
 		return state;
 	}
 
@@ -174,9 +175,8 @@ public:
 		return int_state;
 	}
 
+	//Activate each neuron with a probability of 50%. Each activated neuron starts with time_active = 0
 	void random_init() {
-		//srand((unsigned) std::time(0));
-		//std::random_device rd;  //Will be used to obtain a seed for the random number engine
 		std::mt19937 gen((unsigned) std::time(0));
 		std::uniform_int_distribution<> dis_binary(0, 1);
 
@@ -189,6 +189,25 @@ public:
 			else { state[i].set_state(0); }
 		}
 	}
+
+	//Activate each neuron with probability prob. Choose random how to set the initial clock from 0 to time_active.
+	void activate(double prob){
+		assert(prob <= 1 && prob >= 0);
+		std::mt19937 gen((unsigned) std::time(0));
+		std::uniform_real_distribution<> prob_active(0, 1);
+		std::uniform_int_distribution<> clock(0, time_active);
+
+		for(int i = 0; i != n_nodes; ++i){
+			double activation = prob_active(gen);
+			int time_activation = clock(gen);
+			if( activation < prob){
+				state[i].set_state(1);
+				state[i].set_clock(time_activation);
+			} else {
+				state[i].set_state(0);
+			}
+		}
+	} 
 
 	void all_firing() {
 		for (int i = 0; i != n_nodes; ++i) {
@@ -261,6 +280,41 @@ public:
 			}
 		}
 		SaveFile << '\n';
+		SaveFile.close();
+	}
+
+	//CSV file. First column = vertices; second column = step number; third column = evolution of first vertex, ...
+	//To create graph, upload file on mathcha(Complex_systems)
+	void write_CSV(int num_visible, int num_interactions){
+		std::mt19937 gen((unsigned) std::time(0));
+		std::uniform_int_distribution<> choose_neurons(0, n_nodes - 1);
+		std::vector<int> visible;
+		int neuron_visible;
+
+		//extract nodes and memorize them in a sorted vector
+		for(int i = 0; i != num_visible; ++i){
+			neuron_visible = choose_neurons(gen);
+			visible.push_back(neuron_visible);
+		}
+		std::sort(visible.begin(), visible.end());
+
+		//Write CSV file
+		int stop = num_interactions;
+		if(num_visible > num_interactions) {stop = num_visible;}
+		std::ofstream SaveFile("CSV.txt");
+		for(int i = 0; i != stop; ++i){
+			if(i < num_visible){
+				SaveFile << "V" << visible[i] << ",";
+			} else {SaveFile << ",";}
+			if(i < num_interactions){
+				SaveFile << i << ",";
+				for(int vertex = 0; vertex != num_visible; ++vertex){
+					SaveFile << state[visible[vertex]].get_state() << ",";
+				}
+				SaveFile << '\n';
+			} else {SaveFile << '\n';}
+			next_step();
+		}
 		SaveFile.close();
 	}
 
@@ -558,8 +612,8 @@ int main() {
 	int time_active = 2;
 	int time_passive = 3;
 	int retard = 4;
-	int number_neurons = 6;
-	int in_degree = 2;
+	int number_neurons = 100;
+	int in_degree = 30;
 	int num_cluster = 3;
 	int nodes_in_cluster = 4;
 	int intercluster = 5;
@@ -570,13 +624,15 @@ int main() {
 	//Bipartite G(number_neurons, in_degree, time_active, time_passive, retard);
 
 	//G.write_adjlist();
-	G.print_adj();
+	//G.print_adj();
 	//G.normalize();
+	G.activate(0.6);
 	//G.random_init();
 	//G.bias_init(0.8, 0.2);
 	//G.print_adj();
 	//G.print_adj_txt();
 	//G.write_adj();
+	G.write_CSV(30, 50);
 	int steps = 100;
 	for (int i = 0; i != steps; ++i) {
 		//G.print_state();
