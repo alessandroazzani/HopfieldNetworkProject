@@ -226,6 +226,20 @@ public:
 		std::cout << get_sync() << '\n';
 	}
 
+	//Compute average of absolute values of sync after steps interactions
+	void average_sync(int steps){
+		for(int i = 0; i != steps; ++i){
+			next_step();
+		}
+
+		double sync_average = 0;
+		for(int i = 0; i != (time_active + time_passive); ++i){
+			sync_average += std::abs(get_sync());
+			next_step();
+		}
+		std::cout << "\n" << "Average sync after " << steps << " steps:" << '\t' << sync_average / (time_active + time_passive);
+	}
+
 	//basic synchronization
 	double get_sync() {
 		double sync = 0;
@@ -290,6 +304,7 @@ public:
 		std::uniform_int_distribution<> choose_neurons(0, n_nodes - 1);
 		std::vector<int> visible;
 		int neuron_visible;
+		assert(num_visible <= n_nodes);
 
 		//extract nodes and memorize them in a sorted vector
 		for(int i = 0; i != num_visible; ++i){
@@ -318,21 +333,19 @@ public:
 		SaveFile.close();
 	}
 
-	//normaliza the firing of a neuron between its "axons"
+	//normalize the firing of a neuron between its "axons"
 	void normalize(){
 		int row = 0;
 		int col = 0;
-		int num_fire = 0;
+		double fire = 0.0;
 		for (;col != n_nodes; ++col) {
-			num_fire = 0;
+			fire = 0.0;
 			for (row=0 ;row != n_nodes; ++row) {
-					if(adj[row][col] != 0){
-						++num_fire;
-					}
+					fire += adj[row][col];
 				}
 			for (row=0 ;row != n_nodes; ++row) {
 				if(adj[row][col] != 0){
-					adj[row][col] /= num_fire;
+					adj[row][col] /= fire;
 				}
 			}
 		}
@@ -625,19 +638,21 @@ int main() {
 
 	//G.write_adjlist();
 	//G.print_adj();
-	//G.normalize();
-	G.activate(0.6);
+	G.activate(0.01);
+	G.normalize();
 	//G.random_init();
 	//G.bias_init(0.8, 0.2);
 	//G.print_adj();
 	//G.print_adj_txt();
 	//G.write_adj();
-	G.write_CSV(30, 50);
+	//G.write_CSV(35, 60);
+
 	int steps = 100;
+	//G.average_sync(steps);
 	for (int i = 0; i != steps; ++i) {
-		//G.print_state();
-		//G.print_sync();
-		//G.next_step();
+		G.print_state();
+		G.print_sync();
+		G.next_step();
 	}
 
 }
