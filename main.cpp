@@ -53,7 +53,10 @@ class Graph {
 		std::mt19937 gen(rd());
 		std::uniform_int_distribution<> dis_int(0, n_nodes - 1);
 		std::uniform_real_distribution<> dis_real(-0.5, 1);
+		std::uniform_int_distribution<> dis_degree(in_degree - 2, in_degree + 1);
+		assert(in_degree >= 2);
 
+		int individual_in_degree = 0;
 		auto itr = adj.begin();
 		auto const endr = adj.end();
 		std::vector<double> row(n_nodes);
@@ -61,7 +64,8 @@ class Graph {
 		int r = 0;
 
 		for (;itr != endr; ++itr, ++r) {
-			for (int i = 0; i != in_degree; ++i) {
+			individual_in_degree = dis_degree(gen);
+			for (int i = 0; i != individual_in_degree; ++i) {
 				N = dis_int(gen);
 				if (row[N] == 0 && (adj[N])[r] == 0 && N != r) {
 					row[N] = dis_real(gen);
@@ -608,8 +612,23 @@ class Cluster : public Graph{
 		}
 		std::cout << '\n';
 	}
-};
 
+	void cycle(){
+		for(int row = 0; row != n_nodes; ++row){
+			for(int col = 0; col != n_nodes; ++col){
+				if(adj[row][col] != 0){
+
+					adj[row][col] = -adj[row][col];
+
+					if(((int)row / nodes_in_cluster) > ((int)col / nodes_in_cluster)){
+						adj[row][col] = 0;
+					}
+				}
+			}
+		}
+	}
+
+};
 
 int main() {
 	//Parameters used for bipartite graph simulation
@@ -622,36 +641,38 @@ int main() {
 	/**/
 	
 	/**/
+	//Choices of prof: 2, 1, 3-4
 	int time_active = 2;
-	int time_passive = 3;
-	int retard = 4;
-	int number_neurons = 100;
-	int in_degree = 20;
+	int time_passive = 1;
+	int retard = 3;
+	int number_neurons = 90;
+	int in_degree = 1; //link negativi aggiunti
 	int num_cluster = 3;
-	int nodes_in_cluster = 4;
-	int intercluster = 5;
+	int nodes_in_cluster = 5;
+	int intercluster = 3;
 	/**/
 
-	Graph G(number_neurons, in_degree, time_active, time_passive, retard);
-	//Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive, retard);
+	//Graph G(number_neurons, in_degree, time_active, time_passive, retard);
+	Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive, retard);
 	//Bipartite G(number_neurons, in_degree, time_active, time_passive, retard);
 
 	//G.write_adjlist();
 	//G.print_adj();
-	G.activate(0.6);
+	//G.activate(0.2);
+	G.cycle();
 	//G.bias_init(0.8, 0.2);
-	G.normalize();
+	//G.normalize();
 	//G.random_init();
-	//G.print_adj();
+	G.print_adj();
 	//G.print_adj_txt();
 	//G.write_adj();
-	G.write_CSV(40, 100);
+	//G.write_CSV(40, 100);
 
-	int steps = 100;
+	int steps = 200;
 	//G.average_sync(steps);
 	for (int i = 0; i != steps; ++i) {
 		//G.print_state();
-		//G.print_syncs();
+		//G.print_sync();
 		//G.next_step();
 	}
 
