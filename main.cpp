@@ -614,9 +614,9 @@ class Cluster : public Graph{
 int main() {
 	//Parameters used for bipartite graph simulation
 	/*
-	int time_active = 1;
-	int time_passive = 1;
-	int retard = 1;
+	int time_active = 3;
+	int time_passive = 4;
+	int retard = 3;
 	int number_neurons = 1000;
 	int in_degree = 2;
 	/**/
@@ -626,7 +626,7 @@ int main() {
 	int time_passive = 3;
 	int retard = 4;
 	int number_neurons = 100;
-	int in_degree = 30;
+	int in_degree = 20;
 	int num_cluster = 3;
 	int nodes_in_cluster = 4;
 	int intercluster = 5;
@@ -638,21 +638,21 @@ int main() {
 
 	//G.write_adjlist();
 	//G.print_adj();
-	G.activate(0.01);
+	G.activate(0.5);
+	//G.bias_init(0.8, 0.2);
 	G.normalize();
 	//G.random_init();
-	//G.bias_init(0.8, 0.2);
 	//G.print_adj();
 	//G.print_adj_txt();
 	//G.write_adj();
-	//G.write_CSV(35, 60);
+	G.write_CSV(40, 100);
 
 	int steps = 100;
 	//G.average_sync(steps);
 	for (int i = 0; i != steps; ++i) {
-		G.print_state();
-		G.print_sync();
-		G.next_step();
+		//G.print_state();
+		//G.print_syncs();
+		//G.next_step();
 	}
 
 }
