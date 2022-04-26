@@ -638,7 +638,7 @@ int main() {
 
 	//G.write_adjlist();
 	//G.print_adj();
-	G.activate(0.5);
+	G.activate(0.6);
 	//G.bias_init(0.8, 0.2);
 	G.normalize();
 	//G.random_init();
