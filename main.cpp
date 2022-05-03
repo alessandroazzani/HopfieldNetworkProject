@@ -52,7 +52,10 @@ class Graph {
 		std::random_device rd;  //Will be used to obtain a seed for the random number engine
 		std::mt19937 gen(rd());
 		std::uniform_int_distribution<> dis_int(0, n_nodes - 1);
-		std::uniform_real_distribution<> dis_real(-0.5, 1);
+		double w_min = -0.5;
+		double w_max = 1;
+		if(EI != 0){w_max = EI * std::abs(w_min);}
+		std::uniform_real_distribution<> dis_real(w_min, w_max);
 		std::uniform_int_distribution<> dis_degree(in_degree - 2, in_degree + 1);
 		assert(in_degree >= 2);
 
@@ -87,6 +90,7 @@ protected:
 	int time_active = 0;
 	int time_passive = 0;
 	int retard = 0;
+	double EI = 0.;
 	std::vector<std::vector<double>> memory;
 	std::vector<std::vector<double>> adj{ 0 }; //elemento 1 2 è diretto da 2 ad 1(è la trasposta...)
 	std::vector<std::vector<double>> transpose{ 0 };
@@ -104,12 +108,13 @@ protected:
 
 public:
 
-	Graph(int n_nodes_, int in_degree_, int time_active_, int time_passive_, int retard_, bool is_cluster = false) {
+	Graph(int n_nodes_, int in_degree_, int time_active_, int time_passive_, int retard_, double EI_ = 0., bool is_cluster = false) {
 		n_nodes = n_nodes_;
 		in_degree = in_degree_;
 		time_active = time_active_ - 1;
 		time_passive = time_passive_ - 1;
 		retard = retard_ - 1;
+		EI = EI_;
 		assert(in_degree < (n_nodes - 1));
 		state.resize(n_nodes);
 		adj.resize(n_nodes, std::vector<double>(n_nodes));
@@ -445,7 +450,7 @@ class Bipartite : public Graph{
 
 	public:
 	Bipartite(int n_nodes_, int in_degree_, int time_active_, int time_passive_, int retard_) 
-	: Graph(n_nodes_, in_degree_, time_active_, time_passive_, retard_, true) {
+	: Graph(n_nodes_, in_degree_, time_active_, time_passive_, retard_, 0., true) {
 			bipartite_adj();
 	}
 
@@ -580,7 +585,7 @@ class Cluster : public Graph{
 
 	public:
 	Cluster(int num_clusters_, int nodes_in_cluster_, int inter_connections_, int in_degree_, int time_active_, int time_passive_, int retard_) 
-	: Graph(num_clusters_ * nodes_in_cluster_, in_degree_, time_active_, time_passive_, retard_, true) {
+	: Graph(num_clusters_ * nodes_in_cluster_, in_degree_, time_active_, time_passive_, retard_, 0., true) {
 		inter_connections = inter_connections_;
 		num_clusters = num_clusters_;
 		nodes_in_cluster = nodes_in_cluster_;
@@ -647,19 +652,20 @@ int main() {
 	int retard = 3;
 	int number_neurons = 90;
 	int in_degree = 1; //link negativi aggiunti
+	double EI = 2;
 	int num_cluster = 3;
 	int nodes_in_cluster = 5;
 	int intercluster = 3;
 	/**/
 
-	//Graph G(number_neurons, in_degree, time_active, time_passive, retard);
-	Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive, retard);
+	Graph G(number_neurons, in_degree, time_active, time_passive, retard, EI);
+	//Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive, retard);
 	//Bipartite G(number_neurons, in_degree, time_active, time_passive, retard);
 
 	//G.write_adjlist();
 	//G.print_adj();
 	//G.activate(0.2);
-	G.cycle();
+	//G.cycle();
 	//G.bias_init(0.8, 0.2);
 	//G.normalize();
 	//G.random_init();
