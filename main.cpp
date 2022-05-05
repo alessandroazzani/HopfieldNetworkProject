@@ -54,7 +54,7 @@ class Graph {
 		std::uniform_int_distribution<> dis_int(0, n_nodes - 1);
 		double w_min = -0.5;
 		double w_max = 1;
-		if(EI != 0){w_max = EI * std::abs(w_min);}
+		if(EI != 0.){w_max = EI * std::abs(w_min);}
 		std::uniform_real_distribution<> dis_real(w_min, w_max);
 		std::uniform_int_distribution<> dis_degree(in_degree - 2, in_degree + 1);
 		assert(in_degree >= 2);
@@ -107,6 +107,7 @@ protected:
 	}
 
 public:
+
 
 	Graph(int n_nodes_, int in_degree_, int time_active_, int time_passive_, int retard_, double EI_ = 0., bool is_cluster = false) {
 		n_nodes = n_nodes_;
@@ -173,6 +174,38 @@ public:
 		memory.erase(memory.begin());
 	}
 
+
+	double seed=1.;
+	void next_step(double prob) {
+		std::random_device rd;
+		std::mt19937 gen(seed);
+		std::uniform_real_distribution<> change(0, 1);
+		time++;
+		std::vector<double> next(n_nodes);
+		auto it_next = next.begin();
+		auto end = adj.end();
+		for (auto it = adj.begin(); it != end; ++it) {
+			*it_next = ((*it) * (state));
+			it_next++;
+		}
+		for(int i = 0; i < n_nodes; ++i){
+			double random = change(gen);
+			if(random <= prob){
+				if(state[i].get_state() == 1){
+					state[i].set_state(0);
+					state[i].set_clock(time_passive);
+				}else{
+					state[i].set_state(1);
+					state[i].set_clock(time_active);
+				}
+			}
+		}
+		memory.push_back(next);
+		Heaviside(memory[0]);
+		memory.erase(memory.begin());
+		seed += 1;
+	}
+
 	int get_time() { return time; }
 
 	std::vector<int> get_state() {
@@ -204,16 +237,19 @@ public:
 		assert(prob <= 1 && prob >= 0);
 		std::mt19937 gen((unsigned) std::time(0));
 		std::uniform_real_distribution<> prob_active(0, 1);
-		std::uniform_int_distribution<> clock(0, time_active);
+		std::uniform_int_distribution<> clock_active(0, time_active);
+		std::uniform_int_distribution<> clock_passive(0, time_passive);
 
 		for(int i = 0; i != n_nodes; ++i){
 			double activation = prob_active(gen);
-			int time_activation = clock(gen);
+			int time_activation = clock_active(gen);
+			int time_passivation = clock_passive(gen);
 			if( activation < prob){
 				state[i].set_state(1);
 				state[i].set_clock(time_activation);
 			} else {
 				state[i].set_state(0);
+				state[i].set_clock(time_passivation);
 			}
 		}
 	} 
@@ -221,6 +257,7 @@ public:
 	void all_firing() {
 		for (int i = 0; i != n_nodes; ++i) {
 			state[i].set_state(1);
+			state[i].set_clock(time_active);
 		}
 	}
 
@@ -247,6 +284,20 @@ public:
 			next_step();
 		}
 		std::cout << "\n" << "Average sync after " << steps << " steps:" << '\t' << sync_average / (time_active + time_passive);
+	}
+
+	//Returns the average sync
+	double get_average_sync(int steps){
+		for(int i = 0; i != steps; ++i){
+			next_step();
+		}
+
+		double sync_average = 0;
+		for(int i = 0; i != (time_active + time_passive); ++i){
+			sync_average += std::abs(get_sync());
+			next_step();
+		}
+		return sync_average / (time_active + time_passive);
 	}
 
 	//basic synchronization
@@ -288,6 +339,23 @@ public:
 		std::cout << '\n';
 	}
 
+	void print_transpose() {
+		auto itr = transpose.begin();
+		auto const endr = transpose.end();
+		auto endc = itr->end();
+		auto itc = itr->begin();
+
+		for (int i = 1;itr != endr;++itr, i++) {
+			itc = itr->begin();
+			endc = itr->end();
+			std::cout << '\n';
+			for (;itc != endc;++itc) {
+				std::cout << *itc << "       ";
+			}
+		}
+		std::cout << '\n';
+	}
+
 	void print_adj_txt() {
 		auto itr = adj.begin();
 		auto const endr = adj.end();
@@ -308,7 +376,7 @@ public:
 
 	//CSV file. First column = vertices; second column = step number; third column = evolution of first vertex, ...
 	//To create graph, upload file on mathcha(Complex_systems)
-	void write_CSV(int num_visible, int num_interactions){
+	void write_CSV(int num_visible, int num_interactions, double prob = 0){
 		std::mt19937 gen((unsigned) std::time(0));
 		std::uniform_int_distribution<> choose_neurons(0, n_nodes - 1);
 		std::vector<int> visible;
@@ -318,7 +386,10 @@ public:
 		//extract nodes and memorize them in a sorted vector
 		for(int i = 0; i != num_visible; ++i){
 			neuron_visible = choose_neurons(gen);
-			visible.push_back(neuron_visible);
+			auto it = std::find(visible.begin(), visible.end(), neuron_visible);
+			if (it == visible.end()){
+				visible.push_back(neuron_visible);
+			} else { --i;}
 		}
 		std::sort(visible.begin(), visible.end());
 
@@ -337,7 +408,11 @@ public:
 				}
 				SaveFile << '\n';
 			} else {SaveFile << '\n';}
-			next_step();
+			if(prob == 0.){
+				next_step();
+			} else { 
+				next_step(prob);
+			}
 		}
 		SaveFile.close();
 	}
@@ -650,36 +725,61 @@ int main() {
 	int time_active = 2;
 	int time_passive = 1;
 	int retard = 3;
-	int number_neurons = 90;
-	int in_degree = 1; //link negativi aggiunti
-	double EI = 2;
-	int num_cluster = 3;
-	int nodes_in_cluster = 5;
+	int number_neurons = 100;
+	int in_degree = 6;
+	double EI = 1;
+	int num_cluster = 2;
+	int nodes_in_cluster = 4;
 	int intercluster = 3;
 	/**/
 
-	Graph G(number_neurons, in_degree, time_active, time_passive, retard, EI);
+	//Graph G(number_neurons, in_degree, time_active, time_passive, retard, EI);
 	//Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive, retard);
 	//Bipartite G(number_neurons, in_degree, time_active, time_passive, retard);
 
 	//G.write_adjlist();
 	//G.print_adj();
-	//G.activate(0.2);
+	//G.activate(0.8);
+	//G.all_firing();
 	//G.cycle();
 	//G.bias_init(0.8, 0.2);
 	//G.normalize();
 	//G.random_init();
-	G.print_adj();
+	//G.print_adj();
+	//G.create_transpose();
+	//G.print_transpose();
 	//G.print_adj_txt();
 	//G.write_adj();
-	//G.write_CSV(40, 100);
+	//G.write_CSV(40, 200, 0.);
+	//G.average_sync(1);
 
-	int steps = 200;
 	//G.average_sync(steps);
-	for (int i = 0; i != steps; ++i) {
+	//for (int i = 0; i != steps; ++i) {
 		//G.print_state();
 		//G.print_sync();
 		//G.next_step();
-	}
+	//}
 
+
+	//Per grafici cambiando i parametri: grafo classico
+
+	double par_min = 1.3;//parametro generico...
+	double par_max = 2.3;
+	double par_jump = .1;
+	int steps = 300;
+	int N = 5;
+	double meta_average_sync = 0;
+
+	std::ofstream SaveFile("CSV1.txt");
+	for(double par = par_min; par <= par_max; par += par_jump){
+		Graph G(number_neurons, in_degree, time_active, time_passive, retard, par);
+		meta_average_sync = 0;
+		for(int i = 0; i != N; ++i){
+			G.activate(0.2);
+			meta_average_sync += G.get_average_sync(steps);
+		}
+		SaveFile << par << ", " << meta_average_sync/N << '\n';
+	}
+	SaveFile.close();
+	
 }
