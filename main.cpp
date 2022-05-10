@@ -366,6 +366,65 @@ class Graph
     return sync_average / (time_active + time_passive + 2);
   }
 
+  double get_average_sync(int steps, int active, int passive, int excited)
+  {
+    std::vector<int> excited_neurons;
+    for(int i = 0; i != excited; ++i){
+      excited_neurons.push_back(i);
+    }
+
+  int excited_active = active;
+  int excited_passive = passive;
+  int state = 0;
+  int clock = excited_passive;
+  for(int i = 0; i != steps; ++i){
+    next_step();
+    set_state(excited_neurons, state);
+    --clock;
+    if(clock == 0){
+      switch (state)
+      {
+      case 0:
+        state = 1;
+        clock = excited_active;
+        break;
+      case 1:
+        state = 0;
+        clock = excited_passive;
+      break;
+      default:
+      std::cout << "ERROR" << '\n';
+        break;
+      }
+    }
+  }
+    
+  double sync_average = 0.;
+  for (int i = 0; i != (time_active + time_passive + 2); ++i) {
+    next_step();
+    set_state(excited_neurons, state);
+    --clock;
+    if(clock == 0){
+      switch (state)
+      {
+      case 0:
+        state = 1;
+        clock = excited_active;
+        break;
+      case 1:
+        state = 0;
+        clock = excited_passive;
+      break;
+      default:
+      std::cout << "ERROR" << '\n';
+        break;
+      }
+    }
+    sync_average += std::abs(get_sync());
+  }
+  return sync_average / (time_active + time_passive + 2);
+  }
+
   // Returns the (max # neurons activating simultaneously - # neurons activating in other steps) /
   // n_nodes
   double get_activation_sync(int steps)
@@ -403,11 +462,94 @@ class Graph
             sottract_sync / static_cast<double>(time_active + time_passive + 2 - 1)) /
            static_cast<double>(n_nodes);
   }
+//-------------------------------------------------------------------------------------------
+  double get_activation_sync(int steps, int active, int passive, int excited)
+  {
+    std::vector<int> excited_neurons;
+    for(int i = 0; i != excited; ++i){
+      excited_neurons.push_back(i);
+    }
+
+  int excited_active = active;
+  int excited_passive = passive;
+  int state_ = 0;
+  int clock = excited_passive;
+  //wait steps iterations
+  for(int i = 0; i != steps; ++i){
+    next_step();
+    set_state(excited_neurons, state_);
+    --clock;
+    if(clock == 0){
+      switch (state_)
+      {
+      case 0:
+        state_ = 1;
+        clock = excited_active;
+        break;
+      case 1:
+        state_ = 0;
+        clock = excited_passive;
+      break;
+      default:
+      std::cout << "ERROR" << '\n';
+        break;
+      }
+    }
+  }
+    
+  std::vector<int> previous;
+  previous.resize(n_nodes, 0);
+  for (int i = 0; i < n_nodes; ++i) {
+    previous[i] = state[i].get_state();
+  }
+
+  double best_activation_sync = 0.;
+  double activation_sync = 0.;
+  double sottract_sync = 0.;
+  for (int i = 0; i != (time_active + time_passive + 2); ++i) {
+    next_step();
+    set_state(excited_neurons, state_);
+    --clock;
+    if(clock == 0){
+      switch (state_)
+      {
+      case 0:
+        state_ = 1;
+        clock = excited_active;
+        break;
+      case 1:
+        state_ = 0;
+        clock = excited_passive;
+      break;
+      default:
+      std::cout << "ERROR" << '\n';
+        break;
+      }
+    }
+
+    activation_sync = 0.;
+    for (int neuron = 0; neuron < n_nodes; ++neuron) {
+      if (previous[neuron] == 0) {
+        activation_sync += static_cast<double>(state[neuron].get_state());
+      }
+      previous[neuron] = state[neuron].get_state();
+    }
+    if (activation_sync > best_activation_sync) {
+      sottract_sync += best_activation_sync;
+      best_activation_sync = activation_sync;
+    } else {
+      sottract_sync = sottract_sync + activation_sync;
+    }
+  }
+  return (best_activation_sync -
+          sottract_sync / static_cast<double>(time_active + time_passive + 2 - 1)) /
+         static_cast<double>(n_nodes);
+  }
 
   // basic synchronization
   double get_sync()
   {
-    double sync = 0;
+    double sync = 0.;
     int s;
     for (auto it = state.begin(); it != state.end(); ++it) {
       s = (*it).get_state();
@@ -878,21 +1020,11 @@ class Cluster : public Graph
 
 int main()
 {
-  // Parameters used for bipartite graph simulation
-  /*
-  int time_active = 3;
-  int time_passive = 4;
-  int retard = 3;
-  int number_neurons = 1000;
-  int in_degree = 2;
-  /**/
-
-  /**/
   // Choices of prof: 2, 1, 3-4
   int time_active = 2;
   int time_passive = 1;
   int retard = 3;
-  int number_neurons = 150;
+  int number_neurons = 100;
   int in_degree = 6;
   double EI = 2;
   int num_cluster = 3;
@@ -901,24 +1033,23 @@ int main()
   /**/
 
   // Graph G(number_neurons, in_degree, time_active, time_passive, retard, EI);
-  // Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive,
-  // retard);
-  Bipartite G(number_neurons, in_degree, time_active, time_passive, retard);
+   //Cluster G(num_cluster, nodes_in_cluster, intercluster, in_degree, time_active, time_passive,  retard);
+  //Bipartite G(number_neurons, in_degree, time_active, time_passive, retard);
 
   // G.write_adjlist();
   // G.cycle();
   // G.print_adj();
-  // G.activate(0.7);
+  // G.activate(0.9);
   // G.normalize();
   // G.all_firing();
-  G.bias_init(0.2, 0.);
+  // G.bias_init(0.2, 0.);
   // G.random_init();
   // G.print_adj();
   // G.create_transpose();
   // G.print_transpose();
   // G.print_adj_txt();
   // G.write_adj();
-  G.write_CSV(40, 200, 0.);
+  //G.write_CSV(40, 400, 0.);
   // G.average_sync(1);
 
   // G.average_sync(50);
@@ -930,12 +1061,12 @@ int main()
   //}
 
   // Per grafici cambiando i parametri: grafo classico
-  /*
-  double par_min = 0.02;
-  double par_max = 1.;
-  double par_jump = 0.03;
-  int steps = 300;
-  int N = 7;
+  /**/
+  double par_min = 0.5;
+  double par_max = 4.5;
+  double par_jump = 0.2;
+  int steps = 50;
+  int N = 5;
   double meta_average_sync = 0.;
   double meta_activation_sync = 0.;
   std::vector<double> average_sync;
@@ -952,7 +1083,7 @@ int main()
   SaveFile_2 << "par, sync" << '\n';
   SaveFile_5 << "par, sync, error" << '\n';
   for(double par = par_min; par <= par_max; par += par_jump){
-    Graph G(number_neurons, in_degree, time_active, time_passive, retard, EI);
+    Graph G(number_neurons, in_degree, time_active, time_passive, retard, par);
     G.normalize();
     meta_average_sync = 0.;
     meta_activation_sync = 0.;
@@ -961,17 +1092,21 @@ int main()
     E_average_sync = 0.;
     E_activation_sync = 0.;
     for(int i = 0; i != N; ++i){
-      G.activate(par);
-      average_sync.push_back(G.get_average_sync(steps));
+      G.activate(0.8);
+      for(int wait = 0; wait != 30; ++wait){
+        G.next_step();
+      }
+      average_sync.push_back(G.get_average_sync(steps, 2, 1, 100));
       meta_average_sync += average_sync[i];
-      activation_sync.push_back(G.get_activation_sync(0));
+      activation_sync.push_back(G.get_activation_sync(0, 2, 1, 100));
       meta_activation_sync += activation_sync[i];
     }
     SaveFile_1 << par << ", " << meta_average_sync/N << '\n';
     SaveFile_2 << par << ", " << meta_activation_sync/N << '\n';
     for(int i = 0; i != N; ++i){
       E_average_sync += (meta_average_sync / N - average_sync[i]) * (meta_average_sync / N -
-  average_sync[i]); E_activation_sync += (meta_activation_sync / N - activation_sync[i]) *
+  average_sync[i]);
+   E_activation_sync += (meta_activation_sync / N - activation_sync[i]) *
   (meta_activation_sync / N - activation_sync[i]);
     }
     SaveFile_3 << par << '\t' << meta_average_sync/N << '\t' << std::sqrt(E_average_sync / (N - 1))
